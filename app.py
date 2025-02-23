@@ -56,6 +56,12 @@ def get_news():
     articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(10).all()
     return jsonify([article.serialize() for article in articles])
 
+# Manually trigger fetching news
+@app.route('/fetch-news', methods=['GET'])
+def trigger_news_fetch():
+    fetch_news()  # Calls the Celery task to fetch news
+    return jsonify({"message": "News fetching triggered"}), 200
+
 # Run Flask App with Open Port
 if __name__ == '__main__':
     with app.app_context():  # Fix application context issue
