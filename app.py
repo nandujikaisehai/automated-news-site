@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
-import requests, openai, os, json
+import requests, os, json
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
@@ -21,50 +21,39 @@ class NewsArticle(db.Model):
     def serialize(self):
         return {"id": self.id, "title": self.title, "content": self.content, "source_url": self.source_url}
 
-# Fetch News from API with Error Handling
+# Fetch News from GNews API with Error Handling
 @celery.task()
 def fetch_news():
-    API_URL = "https://newsapi.org/v2/top-headlines?country=us&apiKey=" + os.getenv("NEWS_API_KEY")
-    
+    API_URL = "https://gnews.io/api/v4/search?q=latest&lang=en&country=in&max=10&apikey=1a0a27010faea6c340da0de32484439d"
+
     try:
         response = requests.get(API_URL)
         response.raise_for_status()  # Raises an error for 4xx/5xx responses
-        
+
         data = response.json()
         if "articles" not in data:
             return "Error: No 'articles' field in response"
 
         articles = data.get("articles", [])
-        
+
         for article in articles:
             title = article.get("title", "No Title")
             content = article.get("description", "No Content Available")
             source_url = article.get("url", "#")
 
-            # Reword Content using GPT API
-            new_content = rewrite_content(content)
-
-            new_article = NewsArticle(title=title, content=new_content, source_url=source_url)
+            # Store news article in the database
+            new_article = NewsArticle(title=title, content=content, source_url=source_url)
             db.session.add(new_article)
 
         db.session.commit()
-        return "News updated successfully"
+        return "News updated successfully from GNews API"
 
     except requests.exceptions.RequestException as e:
         return f"Error fetching news: {str(e)}"
     except json.decoder.JSONDecodeError:
-        return "Error: Invalid JSON response from NewsAPI"
+        return "Error: Invalid JSON response from GNews API"
 
-# Rewriting Content with GPT
-def rewrite_content(text):
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    response = openai.Completion.create(
-        engine="davinci",
-        prompt=f"Reword this in a new way: {text}",
-        max_tokens=200
-    )
-    return response.choices[0].text.strip()
-
+# Get News from Database
 @app.route('/news', methods=['GET'])
 def get_news():
     articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(10).all()
