@@ -23,12 +23,13 @@ celery.conf.beat_schedule = {
 }
 celery.conf.timezone = 'UTC'
 
-# News Model
+# News Model (Now Includes Image URL)
 class NewsArticle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255))
     content = db.Column(db.Text)
     source_url = db.Column(db.String(255))
+    image_url = db.Column(db.String(255))  # New field for images
     published_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def serialize(self):
@@ -36,17 +37,18 @@ class NewsArticle(db.Model):
             "id": self.id,
             "title": self.title,
             "content": self.content,
-            "source_url": self.source_url
+            "source_url": self.source_url,
+            "image_url": self.image_url  # Include image in API response
         }
 
-# Fetch News from GNews API with GPT-Based Rewording
+# Fetch News from GNews API with GPT-Based Rewording & Image Support
 @celery.task()
 def fetch_news():
     API_URL = "https://gnews.io/api/v4/search?q=latest&lang=en&country=in&max=10&apikey=1a0a27010faea6c340da0de32484439d"
 
     try:
         response = requests.get(API_URL)
-        response.raise_for_status()  # Raises an error for 4xx/5xx responses
+        response.raise_for_status()
 
         data = response.json()
         if "articles" not in data:
@@ -58,6 +60,7 @@ def fetch_news():
             title = article.get("title", "No Title")
             original_content = article.get("description", "No Content Available")
             source_url = article.get("url", "#")
+            image_url = article.get("image", None)  # Fetch image URL from API
 
             # 🔹 Reword Content using GPT API
             rewritten_content = rewrite_content(original_content)
@@ -65,12 +68,17 @@ def fetch_news():
             print(f"Original: {original_content[:100]}...")
             print(f"Rewritten: {rewritten_content[:100]}...")
 
-            # Store news article in the database
-            new_article = NewsArticle(title=title, content=rewritten_content, source_url=source_url)
+            # Store news article in the database with image
+            new_article = NewsArticle(
+                title=title, 
+                content=rewritten_content, 
+                source_url=source_url, 
+                image_url=image_url
+            )
             db.session.add(new_article)
 
         db.session.commit()
-        return "News updated successfully with GPT-reworded content"
+        return "News updated successfully with GPT-reworded content and images"
 
     except requests.exceptions.RequestException as e:
         return f"Error fetching news: {str(e)}"
