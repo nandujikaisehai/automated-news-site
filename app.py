@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
-import requests, os, json
+import requests, openai, os, json
 from flask_cors import CORS  # Enable CORS to allow frontend requests
 
 app = Flask(__name__)
@@ -21,9 +21,14 @@ class NewsArticle(db.Model):
     published_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def serialize(self):
-        return {"id": self.id, "title": self.title, "content": self.content, "source_url": self.source_url}
+        return {
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "source_url": self.source_url
+        }
 
-# Fetch News from GNews API with Error Handling
+# Fetch News from GNews API with GPT-Based Rewording
 @celery.task()
 def fetch_news():
     API_URL = "https://gnews.io/api/v4/search?q=latest&lang=en&country=in&max=10&apikey=1a0a27010faea6c340da0de32484439d"
@@ -40,20 +45,38 @@ def fetch_news():
 
         for article in articles:
             title = article.get("title", "No Title")
-            content = article.get("description", "No Content Available")
+            original_content = article.get("description", "No Content Available")
             source_url = article.get("url", "#")
 
+            # 🔹 Reword Content using GPT API
+            rewritten_content = rewrite_content(original_content)
+
             # Store news article in the database
-            new_article = NewsArticle(title=title, content=content, source_url=source_url)
+            new_article = NewsArticle(title=title, content=rewritten_content, source_url=source_url)
             db.session.add(new_article)
 
         db.session.commit()
-        return "News updated successfully from GNews API"
+        return "News updated successfully with GPT-reworded content"
 
     except requests.exceptions.RequestException as e:
         return f"Error fetching news: {str(e)}"
     except json.decoder.JSONDecodeError:
         return "Error: Invalid JSON response from GNews API"
+
+# Rewriting Content with GPT for SEO Optimization
+def rewrite_content(text):
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+
+    try:
+        response = openai.Completion.create(
+            engine="gpt-4",
+            prompt=f"Reword this news article in an SEO-friendly way: {text}",
+            max_tokens=200
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error in GPT rewriting: {e}")
+        return text  # Return original content if GPT fails
 
 # Get News from Database
 @app.route('/news', methods=['GET'])
@@ -74,4 +97,3 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 10000))  # Get PORT from environment variables, default 10000
     app.run(host='0.0.0.0', port=port)
-
