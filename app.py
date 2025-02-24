@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
 import requests, openai, os, json
 from flask_cors import CORS  # Enable CORS to allow frontend requests
+from celery.schedules import crontab
+import django_celery_beat  # Required for Celery Beat to work
 
 app = Flask(__name__)
 CORS(app)  # Apply CORS to allow requests from the frontend
@@ -11,6 +13,15 @@ db = SQLAlchemy(app)
 
 celery = Celery(app.name, broker=os.getenv("REDIS_URL"))
 celery.conf.update(app.config)
+
+# 🔹 Schedule Automatic News Fetching Every 2 Minutes
+celery.conf.beat_schedule = {
+    "fetch-news-every-2-minutes": {
+        "task": "app.fetch_news",
+        "schedule": crontab(minute="*/2"),  # Runs every 2 minutes
+    }
+}
+celery.conf.timezone = 'UTC'
 
 # News Model
 class NewsArticle(db.Model):
