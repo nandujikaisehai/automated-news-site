@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate  # Added Flask-Migrate for database migrations
 from celery import Celery
 import requests, openai, os, json
 from flask_cors import CORS  # Enable CORS to allow frontend requests
@@ -9,7 +10,10 @@ import django_celery_beat  # Required for Celery Beat to work
 app = Flask(__name__)
 CORS(app)  # Apply CORS to allow requests from the frontend
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Prevents unnecessary warnings
+
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)  # Initializes Flask-Migrate
 
 celery = Celery(app.name, broker=os.getenv("REDIS_URL"))
 celery.conf.update(app.config)
