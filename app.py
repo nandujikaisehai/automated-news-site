@@ -14,11 +14,11 @@ db = SQLAlchemy(app)
 celery = Celery(app.name, broker=os.getenv("REDIS_URL"))
 celery.conf.update(app.config)
 
-# 🔹 Schedule Automatic News Fetching Every 2 Minutes
+# 🔹 Schedule Automatic News Fetching Every 14 Minutes
 celery.conf.beat_schedule = {
-    "fetch-news-every-2-minutes": {
+    "fetch-news-every-14-minutes": {
         "task": "app.fetch_news",
-        "schedule": crontab(minute="*/2"),  # Runs every 2 minutes
+        "schedule": crontab(minute="*/14"),  # Runs every 14 minutes
     }
 }
 celery.conf.timezone = 'UTC'
