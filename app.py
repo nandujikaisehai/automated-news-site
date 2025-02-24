@@ -79,7 +79,7 @@ def rewrite_content(text):
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a news editor. Reword the following news article in an SEO-friendly way."},
+                {"role": "system", "content": "You are a professional journalist. Reword the following news article in an SEO-friendly and engaging way, keeping it factual and avoiding bias."},
                 {"role": "user", "content": text}
             ],
             max_tokens=250
