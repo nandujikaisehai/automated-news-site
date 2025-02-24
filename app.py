@@ -2,8 +2,10 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
 import requests, os, json
+from flask_cors import CORS  # Enable CORS to allow frontend requests
 
 app = Flask(__name__)
+CORS(app)  # Apply CORS to allow requests from the frontend
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 db = SQLAlchemy(app)
 
