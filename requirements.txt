@@ -5,3 +5,4 @@ requests
 openai
 psycopg2-binary
 redis
+flask_cors
