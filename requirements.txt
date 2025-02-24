@@ -7,3 +7,4 @@ psycopg2-binary
 redis
 flask_cors
 django-celery-beat
+flask-migrate
