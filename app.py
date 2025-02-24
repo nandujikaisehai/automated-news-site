@@ -51,6 +51,9 @@ def fetch_news():
             # 🔹 Reword Content using GPT API
             rewritten_content = rewrite_content(original_content)
 
+            print(f"Original: {original_content[:100]}...")
+            print(f"Rewritten: {rewritten_content[:100]}...")
+
             # Store news article in the database
             new_article = NewsArticle(title=title, content=rewritten_content, source_url=source_url)
             db.session.add(new_article)
@@ -66,14 +69,26 @@ def fetch_news():
 # Rewriting Content with GPT for SEO Optimization
 def rewrite_content(text):
     openai.api_key = os.getenv("OPENAI_API_KEY")
+    
+    if not text or text.strip() == "":
+        return "No content available"
 
     try:
-        response = openai.Completion.create(
-            engine="gpt-4",
-            prompt=f"Reword this news article in an SEO-friendly way: {text}",
-            max_tokens=200
+        print(f"Calling GPT for rewording: {text[:100]}...")  # Debugging log
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a news editor. Reword the following news article in an SEO-friendly way."},
+                {"role": "user", "content": text}
+            ],
+            max_tokens=250
         )
-        return response.choices[0].text.strip()
+
+        rewritten_text = response["choices"][0]["message"]["content"].strip()
+        print(f"GPT Response: {rewritten_text[:100]}...")  # Debugging log
+        return rewritten_text
+
     except Exception as e:
         print(f"Error in GPT rewriting: {e}")
         return text  # Return original content if GPT fails
@@ -97,3 +112,4 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 10000))  # Get PORT from environment variables, default 10000
     app.run(host='0.0.0.0', port=port)
+
